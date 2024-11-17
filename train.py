@@ -18,7 +18,7 @@ from model import define_D, define_G, get_scheduler, GANLoss, update_learning_ra
 
 cudnn.benchmark = True
 
-def calculate_gradient_penalty(disc, input, real_images, fake_images):
+def calculate_gradient_penalty(disc, input, real_images, fake_images, device):
     eta = torch.FloatTensor(real_images.size(0),1,1,1).uniform_(0,1)
     eta = eta.expand(real_images.size(0), real_images.size(1), real_images.size(2), real_images.size(3))
     eta = eta.to(device)
@@ -42,7 +42,7 @@ def calculate_gradient_penalty(disc, input, real_images, fake_images):
     return grad_penalty
 
 
-def save_sample(batches_done, testing_data_loader, dataset_dir, result_folder):
+def save_sample(net_g, batches_done, testing_data_loader, dataset_dir, result_folder, device):
     sample = next(iter(testing_data_loader))
     samples = sample[1].to(device)
     masked_samples = sample[0].to(device)
@@ -65,6 +65,11 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
           epoch_count=1, niter=100, niter_decay=100, lr_decay_iters=50):
 
     os.makedirs(result_folder, exist_ok=True)
+    print(f"Dataset directory: {dataset_dir}")
+    dataset = ImageDataset(dataset_dir, img_size=img_size)
+    print(f"Dataset size: {len(dataset)}")
+    if len(dataset) == 0:
+        raise ValueError("Dataset is empty! Check the dataset directory and image files.")
 
     # Dataset loader
     training_data_loader = DataLoader(ImageDataset(dataset_dir, img_size=img_size),
@@ -72,7 +77,8 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
     testing_data_loader = DataLoader(ImageDataset(dataset_dir, mode='val', img_size=img_size),
                                      batch_size=6, shuffle=True, num_workers=1)
 
-    gpu_id = 'cuda:3'
+    gpu_id = 'cuda:0'
+    # gpu_id = 'cpu'
     device = torch.device(gpu_id)
 
     print('===> Building models')
@@ -101,13 +107,15 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
 
     for epoch in range(epoch_count, niter + niter_decay + 1):
         # train
+        print("[Epoch: " + str(epoch) + " ]")
         for iteration, batch in enumerate(training_data_loader, 1):
             # forward
             real_a, real_b, path = batch[0].to(device), batch[1].to(device), batch[2].to(device)
             # imshow(torch.cat((real_a[0], real_b[0]), -1).cpu().detach().numpy().reshape(img_size, img_size * 2))
             # imshow(real_b[0].cpu().detach().numpy().reshape(img_size, img_size))
-
+            
             output = net_g(real_a)
+            print(output)
 
             # fake_b = output
             fake_b = torch.max(output, 1, keepdim=True)[1].float()
@@ -143,7 +151,7 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
             loss_d.backward()
 
             # gradient_penalty = calculate_gradient_penalty(net_d, real_a.data, real_b.data, fake_b.data)
-            gradient_penalty = calculate_gradient_penalty(net_d, real_a.data, path.data, fake_path.data)
+            gradient_penalty = calculate_gradient_penalty(net_d, real_a.data, path.data, fake_path.data, device)
             gradient_penalty.backward()
 
             optimizer_d.step()
@@ -165,9 +173,9 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
 
             # Second, G(A) = B
             loss_g_l1 = criterionL1(fake_b, real_b)
-            loss_g_ce = criterionCE(output, real_b[:, 0, ...].long()) * 10
+            # loss_g_ce = criterionCE(output, real_b[:, 0, ...].long()) * 10
             loss_len = (torch.mean(path) - torch.mean(fake_path)).pow(2)
-            loss_g = loss_g_gan + loss_g_ce # + loss_len
+            loss_g = loss_g_gan + loss_g_l1 # + loss_len
 
             loss_g.backward()
 
@@ -213,7 +221,7 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
         print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(testing_data_loader)))
 
         #checkpoint
-        save_sample(epoch * len(training_data_loader) + iteration, testing_data_loader, dataset_dir, result_folder)
+        save_sample(net_g, epoch * len(training_data_loader) + iteration, testing_data_loader, dataset_dir, result_folder, device)
         torch.save(net_g.state_dict(), result_folder + 'generator.pt')
         torch.save(net_d.state_dict(), result_folder + 'discriminator.pt')
         np.save(result_folder + 'loss_history.npy', loss_history)

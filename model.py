@@ -73,7 +73,7 @@ def init_weights(net, init_type='normal', gain=0.02):
 
 def init_net(net, init_type='normal', init_gain=0.02, gpu_id='cuda:0'):
     init_weights(net, init_type, gain=init_gain)
-    return net
+    return net.to(torch.device(gpu_id))
 
 
 def define_G(input_nc, output_nc, ngf, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02,
