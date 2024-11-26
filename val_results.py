@@ -65,7 +65,7 @@ device = torch.device("cpu")
 
 os.makedirs(result_folder, exist_ok=True)
 
-result_folders = ['./results/size_64/20_den'
+result_folders = ['./results/size_64/20_den/'
                   # './size_64/pix2pix/',
                   # './size_64/pix2pix_softmax/',
                   #'./size_64/Wpix2pix/',
@@ -155,10 +155,14 @@ for i, batch in enumerate(val_data_loader):
     print("input shape:", input.data.shape)
     print("target shape:", target.data.shape)
     for i, pred in enumerate(predictions):
-        print(f"prediction {i} shape:", pred[0])
-        # sample = torch.cat((input.data, target.data, pred[1,1,:,:]), 0)
-    sample = torch.cat((input.data, target.data, *predictions[:,0,...]), 0)
-    print("sample: " + sample.size())
+        print(f"prediction {i} shape:", pred.shape)
+        
+    processed_predictions = []
+    for pred in predictions:
+        pred = pred[:, 0:1, :, :] 
+        processed_predictions.append(pred)
+    sample = torch.cat((input.data, target.data, *processed_predictions), 0)
+    print(sample.size())
     save_image(sample, result_folder  + ('%d.png' % i), nrow=7, normalize=True, pad_value=255)
     if i > 10:
         break
