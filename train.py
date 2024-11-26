@@ -73,9 +73,9 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
 
     # Dataset loader
     training_data_loader = DataLoader(ImageDataset(dataset_dir, img_size=img_size),
-                                      batch_size=batch_size, shuffle=True)
+                                      batch_size=batch_size, shuffle=False)
     testing_data_loader = DataLoader(ImageDataset(dataset_dir, mode='val', img_size=img_size),
-                                     batch_size=6, shuffle=True, num_workers=1)
+                                     batch_size=6, shuffle=False, num_workers=1)
 
     gpu_id = 'cuda:0'
     # gpu_id = 'cpu'
@@ -114,8 +114,10 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
             # imshow(torch.cat((real_a[0], real_b[0]), -1).cpu().detach().numpy().reshape(img_size, img_size * 2))
             # imshow(real_b[0].cpu().detach().numpy().reshape(img_size, img_size))
             
+            
             output = net_g(real_a)
-            print(output)
+            # print(output)
+            # print(real_b)
 
             # fake_b = output
             fake_b = torch.max(output, 1, keepdim=True)[1].float()
@@ -173,9 +175,9 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
 
             # Second, G(A) = B
             loss_g_l1 = criterionL1(fake_b, real_b)
-            # loss_g_ce = criterionCE(output, real_b[:, 0, ...].long()) * 10
+            loss_g_ce = criterionCE(output, real_b[:, 0, ...].long()) * 10
             loss_len = (torch.mean(path) - torch.mean(fake_path)).pow(2)
-            loss_g = loss_g_gan + loss_g_l1 # + loss_len
+            loss_g = loss_g_gan + loss_g_ce # + loss_len
 
             loss_g.backward()
 

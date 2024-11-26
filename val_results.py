@@ -45,8 +45,9 @@ def check_connection(img):
         indent += 1
        # print(list(bresenham(prev_x, prev_y, x, y)))
         for cell in list(bresenham(prev_x, prev_y, x, y))[1:-1]:
+            print("bresenham")
             print(img[cell[1], cell[0]])
-            if img[cell[1], cell[0]] == 1:
+            if (img[cell[1], cell[0]] == 1).all():
                 success = False
             else:
                 img[cell[1], cell[0]] = 0
@@ -58,40 +59,41 @@ def check_connection(img):
 img_size = 64
 channels = 1
 num_classes = 3
-result_folder = './size_64/val_results/'
-dataset_dir = './size_64/20_den/'
-device = torch.device("cuda:3")
+result_folder = './results/size_64/20_den'
+dataset_dir = './data/size_64/20_den1'
+device = torch.device("cpu")
 
 os.makedirs(result_folder, exist_ok=True)
 
-result_folders = ['./size_64/pix2pix/',
-                  './size_64/pix2pix_softmax/',
+result_folders = ['./results/size_64/20_den'
+                  # './size_64/pix2pix/',
+                  # './size_64/pix2pix_softmax/',
                   #'./size_64/Wpix2pix/',
                   #'./size_64/Wpix2pix_softmax/',
-                  './size_64/WUnet_softmax/',
-                  './size_64/Wpix2pix_path/',
+                  # './size_64/WUnet_softmax/',
+                  # './size_64/Wpix2pix_path/',
                  # './size_64/Wpix2pix_ppath/',
                  # './size_64/Wpix2pix_ppath_len/',
                   
                  ]
 
-models = [define_G(channels, channels, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=False, unet=False),
-          define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
+models = [#define_G(channels, channels, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=False, unet=False),
+          define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, ce=False, unet=False)
           #define_G(channels, channels, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=False, unet=False),
           #define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
-          define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=True),
-          define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
+          # define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=True),
+          # define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
          # define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
          # define_G(channels, num_classes, 64, 'batch', False, 'normal', 0.02, gpu_id=device, use_ce=True, unet=False),
          ]
 
 for model, path in zip(models, result_folders):
-    model.load_state_dict(torch.load(path + 'generator.pt'))
+    model.load_state_dict(torch.load(path + '/generator.pt'))
 
 batch_size = 6
 
 val_data_loader = DataLoader(ImageDataset(dataset_dir, mode='val', img_size=img_size),
-                             batch_size=1, shuffle=True, num_workers=1)
+                             batch_size=1, shuffle=False, num_workers=0)
 
 #criterionL1 = nn.L1Loss().to(device)
 criterionMSE = nn.MSELoss().to(device)
@@ -149,9 +151,14 @@ for i, batch in enumerate(val_data_loader):
         predictions += [prediction.float().data]
         if num == len(models) -1:
             success, indent = check_connection(prediction.detach().cpu())
-            predictions += [new_pred.float().data]
-    sample = torch.cat((input.data, target.data, *predictions), 0)
-    print(sample.size())
+            predictions += [prediction.float().data]
+    print("input shape:", input.data.shape)
+    print("target shape:", target.data.shape)
+    for i, pred in enumerate(predictions):
+        print(f"prediction {i} shape:", pred[0])
+        # sample = torch.cat((input.data, target.data, pred[1,1,:,:]), 0)
+    sample = torch.cat((input.data, target.data, *predictions[:,0,...]), 0)
+    print("sample: " + sample.size())
     save_image(sample, result_folder  + ('%d.png' % i), nrow=7, normalize=True, pad_value=255)
     if i > 10:
         break
