@@ -2,7 +2,9 @@ from __future__ import print_function
 import argparse
 import os
 import numpy as np
+from matplotlib import pyplot as plt
 from math import log10
+import csv
 
 import torch
 import torch.nn as nn
@@ -18,14 +20,16 @@ from model import define_D, define_G, get_scheduler, GANLoss, update_learning_ra
 
 cudnn.benchmark = True
 
+
 def calculate_gradient_penalty(disc, input, real_images, fake_images, device):
-    eta = torch.FloatTensor(real_images.size(0),1,1,1).uniform_(0,1)
-    eta = eta.expand(real_images.size(0), real_images.size(1), real_images.size(2), real_images.size(3))
+    eta = torch.FloatTensor(real_images.size(0), 1, 1, 1).uniform_(0, 1)
+    eta = eta.expand(real_images.size(0), real_images.size(1),
+                     real_images.size(2), real_images.size(3))
     eta = eta.to(device)
 
     interpolated = (eta * real_images + ((1 - eta) * fake_images)).to(device)
     #interpolated = torch.cat((input, interpolated), 1)
-   
+
     # define it to calculate gradient
     interpolated = Variable(interpolated, requires_grad=True)
 
@@ -35,7 +39,7 @@ def calculate_gradient_penalty(disc, input, real_images, fake_images, device):
     # calculate gradients of probabilities with respect to examples
     gradients = autograd.grad(outputs=prob_interpolated, inputs=interpolated,
                               grad_outputs=torch.ones(
-                                   prob_interpolated.size()).to(device),
+                                  prob_interpolated.size()).to(device),
                               create_graph=True, retain_graph=True)[0]
 
     grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * 10
@@ -52,12 +56,14 @@ def save_sample(net_g, batches_done, testing_data_loader, dataset_dir, result_fo
     output = net_g(masked_samples)
     gen_masks = torch.max(output, 1, keepdim=True)[1].float()
     filled_samples = gen_masks
-    
-    # Save sample
-    sample = torch.cat((masked_samples.data, filled_samples.data, samples.data), -1)
-    save_image(filled_samples.data, dataset_dir + ('%d.png' % batches_done), normalize=True)
-    save_image(sample, result_folder + ('%d.png' % batches_done), nrow=1, normalize=True)
 
+    # Save sample
+    sample = torch.cat(
+        (masked_samples.data, filled_samples.data, samples.data), -1)
+    save_image(filled_samples.data, dataset_dir +
+               ('%d.png' % batches_done), normalize=True)
+    save_image(sample, result_folder + ('%d.png' %
+               batches_done), nrow=1, normalize=True)
 
 
 def train(img_size=64, channels=1, num_classes=3, batch_size=32,
@@ -69,13 +75,14 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
     dataset = ImageDataset(dataset_dir, img_size=img_size)
     print(f"Dataset size: {len(dataset)}")
     if len(dataset) == 0:
-        raise ValueError("Dataset is empty! Check the dataset directory and image files.")
+        raise ValueError(
+            "Dataset is empty! Check the dataset directory and image files.")
 
     # Dataset loader
     training_data_loader = DataLoader(ImageDataset(dataset_dir, img_size=img_size),
-                                      batch_size=batch_size, shuffle=False)
+                                      batch_size=batch_size, shuffle=True)
     testing_data_loader = DataLoader(ImageDataset(dataset_dir, mode='val', img_size=img_size),
-                                     batch_size=6, shuffle=False, num_workers=1)
+                                     batch_size=6, shuffle=True, num_workers=1)
 
     gpu_id = 'cuda:0'
     # gpu_id = 'cpu'
@@ -110,11 +117,11 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
         print("[Epoch: " + str(epoch) + " ]")
         for iteration, batch in enumerate(training_data_loader, 1):
             # forward
-            real_a, real_b, path = batch[0].to(device), batch[1].to(device), batch[2].to(device)
+            real_a, real_b, path = batch[0].to(
+                device), batch[1].to(device), batch[2].to(device)
             # imshow(torch.cat((real_a[0], real_b[0]), -1).cpu().detach().numpy().reshape(img_size, img_size * 2))
             # imshow(real_b[0].cpu().detach().numpy().reshape(img_size, img_size))
-            
-            
+
             output = net_g(real_a)
             # print(output)
             # print(real_b)
@@ -153,7 +160,8 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
             loss_d.backward()
 
             # gradient_penalty = calculate_gradient_penalty(net_d, real_a.data, real_b.data, fake_b.data)
-            gradient_penalty = calculate_gradient_penalty(net_d, real_a.data, path.data, fake_path.data, device)
+            gradient_penalty = calculate_gradient_penalty(
+                net_d, real_a.data, path.data, fake_path.data, device)
             gradient_penalty.backward()
 
             optimizer_d.step()
@@ -177,12 +185,11 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
             loss_g_l1 = criterionL1(fake_b, real_b)
             loss_g_ce = criterionCE(output, real_b[:, 0, ...].long()) * 10
             loss_len = (torch.mean(path) - torch.mean(fake_path)).pow(2)
-            loss_g = loss_g_gan + loss_g_ce # + loss_len
+            loss_g = loss_g_gan + loss_g_ce  # + loss_len
 
             loss_g.backward()
 
             optimizer_g.step()
-
 
             # print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(epoch,
             #                                                                     iteration,
@@ -209,7 +216,8 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
         # test
         avg_psnr = 0
         for batch in testing_data_loader:
-            input, target, mask = batch[0].to(device), batch[1].to(device), batch[2].to(device)
+            input, target, mask = batch[0].to(
+                device), batch[1].to(device), batch[2].to(device)
 
             output = net_g(input)
             # prediction = output
@@ -220,21 +228,67 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
 
         loss_history['valPSNR'] += [avg_psnr / len(testing_data_loader)]
         # print(len(testing_data_loader))
-        print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(testing_data_loader)))
+        print("===> Avg. PSNR: {:.4f} dB".format(
+            avg_psnr / len(testing_data_loader)))
 
-        #checkpoint
-        save_sample(net_g, epoch * len(training_data_loader) + iteration, testing_data_loader, dataset_dir, result_folder, device)
+        # checkpoint
+        save_sample(net_g, epoch * len(training_data_loader) + iteration,
+                    testing_data_loader, dataset_dir, result_folder, device)
         torch.save(net_g.state_dict(), result_folder + 'generator.pt')
         torch.save(net_d.state_dict(), result_folder + 'discriminator.pt')
         np.save(result_folder + 'loss_history.npy', loss_history)
 
+    plt.figure()
+    plt.xlabel('Epoch')
+    plt.ylabel('Avg PSNR (dB)')
+    plt.title('Avg PSNR Over Epochs')
+    plt.plot(range(1, len(loss_history['valPSNR']) + 1),
+             loss_history['valPSNR'], label='Avg PSNR')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(result_folder, 'psnr_plot.png'))  # Save the plot
+    plt.show()
+    plt.close()
+
+    plt.figure()
+    plt.xlabel('Epoch')
+    plt.title('Training Loss')
+    plt.plot(range(1, len(loss_history['D']) + 1),
+             loss_history['D'], label='Discriminator Loss')
+    plt.plot(range(1, len(loss_history['G']) + 1),
+             loss_history['G'], label='Generator Loss')
+    plt.plot(range(1, len(loss_history['p']) + 1),
+             loss_history['p'], label='Perceptual Loss')
+    plt.legend(loc="lower right")
+    plt.grid()
+    # Save the plot
+    plt.savefig(os.path.join(result_folder, 'training_loss_plot.png'))
+    plt.show()
+    plt.close()
+
+    loss_csv_path = os.path.join(result_folder, 'loss_history.csv')
+    with open(loss_csv_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Write headers
+        writer.writerow(['Epoch', 'AvgPSNR', 'Loss_G', 'loss_D', 'loss_P'])
+        # Write data
+        for epoch, (psnr, loss_d, loss_g, loss_p) in enumerate(
+                zip(loss_history['valPSNR'], loss_history['D'], loss_history['G'], loss_history['p']), start=1):
+            writer.writerow([epoch, psnr, loss_d, loss_g, loss_p])
+
+    print(f"Loss history saved to {loss_csv_path}")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img_size', type=int, default=64, help='Size of the input/output grid.')
-    parser.add_argument('--channels', type=int, default=1, help='Number of channels in the input image.')
-    parser.add_argument('--num_classes', type=int, default=3, help='Output number of channels/classes.')
-    parser.add_argument('--dataset_dir', type=str, default='./data', help='Path to the dataset with images.')
+    parser.add_argument('--img_size', type=int, default=64,
+                        help='Size of the input/output grid.')
+    parser.add_argument('--channels', type=int, default=1,
+                        help='Number of channels in the input image.')
+    parser.add_argument('--num_classes', type=int, default=3,
+                        help='Output number of channels/classes.')
+    parser.add_argument('--dataset_dir', type=str, default='./data',
+                        help='Path to the dataset with images.')
     parser.add_argument('--results_dir', type=str, default='./results',
                         help='Where all the results/weights will be saved.')
     parser.add_argument('--batch_size', type=int, default=32,
