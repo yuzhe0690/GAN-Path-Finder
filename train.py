@@ -60,8 +60,8 @@ def save_sample(net_g, batches_done, testing_data_loader, dataset_dir, result_fo
     # Save sample
     sample = torch.cat(
         (masked_samples.data, filled_samples.data, samples.data), -1)
-    save_image(filled_samples.data, dataset_dir +
-               ('%d.png' % batches_done), normalize=True)
+    # save_image(filled_samples.data, dataset_dir +
+    #            ('%d.png' % batches_done), normalize=True)
     save_image(sample, result_folder + ('%d.png' %
                batches_done), nrow=1, normalize=True)
 
@@ -251,30 +251,41 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
     plt.close()
 
     plt.figure()
-    plt.xlabel('Epoch')
     plt.title('Training Loss')
     plt.plot(range(1, len(loss_history['D']) + 1),
-             loss_history['D'], label='Discriminator Loss')
+             loss_history['D'], label='Discriminator Loss (Adversarial)')
     plt.plot(range(1, len(loss_history['G']) + 1),
-             loss_history['G'], label='Generator Loss')
+             loss_history['G'], label='Generator Loss (CE)')
     plt.plot(range(1, len(loss_history['p']) + 1),
              loss_history['p'], label='Perceptual Loss')
-    plt.legend(loc="lower right")
+    plt.legend()
     plt.grid()
     # Save the plot
     plt.savefig(os.path.join(result_folder, 'training_loss_plot.png'))
     plt.show()
     plt.close()
 
+    psnr_csv_path = os.path.join(result_folder, 'psnr.csv')
+    with open(psnr_csv_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Write headers
+        writer.writerow(['Epoch', 'AvgPSNR'])
+        # Write data
+        for epoch, psnr in enumerate(
+                zip(loss_history['valPSNR']), start=1):
+            writer.writerow([epoch, psnr])
+
+    print(f"Loss history saved to {psnr_csv_path}")
+
     loss_csv_path = os.path.join(result_folder, 'loss_history.csv')
     with open(loss_csv_path, mode='w', newline='') as file:
         writer = csv.writer(file)
         # Write headers
-        writer.writerow(['Epoch', 'AvgPSNR', 'Loss_G', 'loss_D', 'loss_P'])
+        writer.writerow(['Iteration', 'Loss_G', 'loss_D', 'loss_P'])
         # Write data
-        for epoch, (psnr, loss_d, loss_g, loss_p) in enumerate(
-                zip(loss_history['valPSNR'], loss_history['D'], loss_history['G'], loss_history['p']), start=1):
-            writer.writerow([epoch, psnr, loss_d, loss_g, loss_p])
+        for i, (loss_d, loss_g, loss_p) in enumerate(
+                zip(loss_history['D'], loss_history['G'], loss_history['p']), start=1):
+            writer.writerow([i, psnr, loss_d, loss_g, loss_p])
 
     print(f"Loss history saved to {loss_csv_path}")
 
