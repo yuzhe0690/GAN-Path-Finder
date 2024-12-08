@@ -9,6 +9,8 @@ from math import log10
 #from IPython.display import clear_output
 import imageio
 import matplotlib.pyplot as plt
+import subprocess
+import re
 
 import torch
 import torch.nn as nn
@@ -47,6 +49,7 @@ def check_connection(out, img):
     success = True
     succes_w_bresenham = True
     final_path = []
+    length_true = 0
 
     path_cells[start_x * img_size + start_y] = False
     while not (start_x == goal_x and start_y == goal_y):
@@ -121,24 +124,32 @@ def get_path_greedy(ppm, img):
     return success, final_path
 
 
+# def get_true_length(path):
+#     length = 0
+#     for f, t in zip(path[:-1], path[1:]):
+#         length += np.sqrt((start_x - x) ** 2 + (start_y - y) ** 2)
+#     return length
+
+
 def get_true_length(path):
     length = 0
-    for f, t in zip(path[:-1], path[1:]):
-        length += np.sqrt((start_x - x) ** 2 + (start_y - y) ** 2)
+    # Use consecutive points from the path
+    for (x1, y1), (x2, y2) in zip(path[:-1], path[1:]):
+        length += np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return length
 
 
 img_size = 64
 channels = 1
 num_classes = 3
-result_folder = './validation/ours_64_free_all_tests/'
-dataset_dir = './dataset/ours_64_free_/'
+result_folder = './results/size_64/20_den_50e/'
+dataset_dir = './data/size_64/20_den/'
 device = torch.device("cpu")
 # device = torch.device("cuda:0")
 
 os.makedirs(result_folder, exist_ok=True)
 
-result_folders = ['./dataset/ours_64_free__results20_den/']
+result_folders = ['./results/size_64/20_den_50e/']
 
 models = [
     define_G(channels, num_classes, img_size, 'batch', False, 'normal',
