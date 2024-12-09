@@ -164,19 +164,58 @@ with open(result_folder + 'val.txt', 'w') as f:
 #         break
 
 
+# for i, batch in enumerate(val_data_loader):
+#     input, target = batch[0].to(device), batch[1].to(device)
+#     predictions = []
+#     for num, model in enumerate(models):
+#         if num == 0:
+#             input_ = input - torch.ones_like(input)
+#             prediction_ = model(input_)
+#             prediction = prediction_ + torch.ones_like(prediction_)
+#         else:
+#             output = model(input)
+#             _, prediction = torch.max(output, 1, keepdim=True)
+#         prediction = torch.where(target.float() == 1, torch.ones_like(
+#             target).float(), prediction.float())
+#         predictions += [prediction.float().data]
+#         if num == len(models) - 1:
+#             success, indent = check_connection(prediction.detach().cpu())
+#             predictions += [prediction.float().data]
+
+#     processed_predictions = []
+#     for pred in predictions:
+#         pred = pred[:, 0:1, :, :]
+#         processed_predictions.append(pred)
+
+#     sample = torch.cat((input.data, target.data, *processed_predictions), 0)
+#     pred_img = processed_predictions[-1]
+
+#     sample_min = sample.min()
+#     sample_max = sample.max()
+#     sample = (sample - sample_min) / (sample_max - sample_min)
+#     sample = sample.clamp(0, 1)
+
+#     pred_min = pred_img.min()
+#     pred_max = pred_img.max()
+#     pred_img = (pred_img - pred_min) / (pred_max - pred_min)
+#     pred_img = pred_img.clamp(0, 1)
+
+#     save_image(sample, pred_folder + ('%d.png' % i),
+#                nrow=7, normalize=False, pad_value=0)
+
+#     save_image(pred_img, pred_folder + ('prediction_%d.png' % i),
+#                nrow=7, normalize=False, pad_value=0)
+
+#     print(f'Processed batch {i+1}/{len(val_data_loader)}')
+
+
 for i, batch in enumerate(val_data_loader):
-    input, target = batch[0].to(device), batch[1].to(device)
+    input = batch[0].to(device)
     predictions = []
     for num, model in enumerate(models):
-        if num == 0:
-            input_ = input - torch.ones_like(input)
-            prediction_ = model(input_)
-            prediction = prediction_ + torch.ones_like(prediction_)
-        else:
-            output = model(input)
-            _, prediction = torch.max(output, 1, keepdim=True)
-        prediction = torch.where(target.float() == 1, torch.ones_like(
-            target).float(), prediction.float())
+        output = model(input)
+        m, prediction = torch.max(output, 1, keepdim=True)
+        print(m)
         predictions += [prediction.float().data]
         if num == len(models) - 1:
             success, indent = check_connection(prediction.detach().cpu())
@@ -187,7 +226,7 @@ for i, batch in enumerate(val_data_loader):
         pred = pred[:, 0:1, :, :]
         processed_predictions.append(pred)
 
-    sample = torch.cat((input.data, target.data, *processed_predictions), 0)
+    sample = torch.cat((input.data, *processed_predictions), 0)
     pred_img = processed_predictions[-1]
 
     sample_min = sample.min()
@@ -207,6 +246,7 @@ for i, batch in enumerate(val_data_loader):
                nrow=7, normalize=False, pad_value=0)
 
     print(f'Processed batch {i+1}/{len(val_data_loader)}')
+
 
 '''
 dataset_dir = './size_64/all_den/'
