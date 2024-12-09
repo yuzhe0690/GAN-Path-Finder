@@ -11,7 +11,7 @@ class ImageDataset(Dataset):
         if not vin:
             # self.inp_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-8])
             self.inp_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-4])
-            self.out_files = sorted(glob.glob('%s/*_log.png' % root), key=lambda fname: fname[:-4])
+            self.out_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-4])
 
         # print(len(self.inp_files), len(self.out_files))
         # print(self.inp_files[:10])
@@ -54,27 +54,25 @@ class ImageDataset(Dataset):
 
         inp_img = imread(self.inp_files[index % len(self.inp_files)])
         out_img = imread(self.out_files[index % len(self.out_files)])
-        
+
         # print("input output dataset get_item")
         # print(inp_img)
         # print(out_img)
-        
+
         inp_img = inp_img[:, :, 0]
         out_img = out_img[:, :, 0]
-        
-        
 
         inp_img = (torch.from_numpy(inp_img).type(torch.FloatTensor))
         out_img = (torch.from_numpy(out_img).type(torch.FloatTensor))
-        
+
         inp_img = (inp_img - inp_img.min()) / (inp_img.max() - inp_img.min())
         out_img = (out_img - out_img.min()) / (out_img.max() - out_img.min())
-        
+
         # print(inp_img.shape)
         # print(out_img.shape)
 
         mask = torch.where(inp_img == 0, torch.ones_like(inp_img), torch.zeros_like(inp_img))
-        
+
         # print(mask.shape)
 
         return inp_img.view(1, self.img_size, self.img_size), out_img.view(1, self.img_size, self.img_size), mask.view(1, self.img_size, self.img_size)
