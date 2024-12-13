@@ -26,46 +26,119 @@ from PIL import Image
 cudnn.benchmark = True
 
 
-def check_connection(img):
-    indent = 0
+# def check_connection(img):
+#     indent = 0
+#     success = True
+#     #new_prediction = img
+#     # print(np.unique(img.float().round().detach().cpu().numpy()))
+#     inds = np.where(
+#         np.array(img.float().round().detach().tolist()).astype('uint8') == 0)
+#     if len(inds) < 0:
+#         return False, 1
+#     prev_x, prev_y = sorted(zip(inds[1], inds[0]))[0]
+#     for x, y in sorted(zip(inds[1], inds[0]))[1:]:
+#         if abs(prev_x - x) <= 1 and abs(prev_y - y) <= 1:
+#             prev_x = x
+#             prev_y = y
+#             continue
+#         if prev_x == x:
+#             prev_y = y
+#             continue
+
+#         indent += 1
+#        # print(list(bresenham(prev_x, prev_y, x, y)))
+#         for cell in list(bresenham(prev_x, prev_y, x, y))[1:-1]:
+#             print("bresenham")
+#             print(img[cell[1], cell[0]])
+#             if (img[cell[1], cell[0]] == 1).all():
+#                 success = False
+#             else:
+#                 img[cell[1], cell[0]] = 0
+#         prev_x = x
+#         prev_y = y
+
+#     return success, indent
+
+
+def check_connection(out, img):
+    # img_size = out.shape[1]
+    if len(out.shape) == 4:  # [batch, channel, height, width]
+        out = out[0, 0]
+    elif len(out.shape) == 3:  # [channel, height, width]
+        out = out[0]
+
+    if len(img.shape) == 4:  # [batch, channel, height, width]
+        img = img[0, 0]
+    elif len(img.shape) == 3:  # [channel, height, width]
+        img = img[0]
+
+    img_size = int(np.sqrt(out.numel()))
+    grid = out.reshape(img_size, img_size)
+    img = img.reshape(img_size, img_size)
+    grid[np.array(img.tolist()).astype('uint8') == 0] = 0
+    grid[np.array(img.tolist()).astype('uint8') == 1] = 1
+
+    inds = np.where(np.array(grid.reshape(
+        img_size, img_size).tolist()).astype('uint8') == 0)
+
+    path_cells = {}
+    for x, y in zip(inds[0], inds[1]):
+        path_cells[x * img_size + y] = True
+
+    startgoal = np.array(np.where(np.array(img.tolist()).astype('uint8') == 0))
+    start_x, start_y = startgoal[:, 0]
+    goal_x, goal_y = startgoal[:, 1]
+
     success = True
-    #new_prediction = img
-    # print(np.unique(img.float().round().detach().cpu().numpy()))
-    inds = np.where(
-        np.array(img.float().round().detach().tolist()).astype('uint8') == 0)
-    if len(inds) < 0:
-        return False, 1
-    prev_x, prev_y = sorted(zip(inds[1], inds[0]))[0]
-    for x, y in sorted(zip(inds[1], inds[0]))[1:]:
-        if abs(prev_x - x) <= 1 and abs(prev_y - y) <= 1:
-            prev_x = x
-            prev_y = y
-            continue
-        if prev_x == x:
-            prev_y = y
+    succes_w_bresenham = True
+    final_path = []
+    length_true = 0
+
+    path_cells[start_x * img_size + start_y] = False
+    while not (start_x == goal_x and start_y == goal_y):
+        final_path += [(start_x, goal_x)]
+        neighbor = False
+        for dx, dy in [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1)]:
+            x, y = start_x + dx, start_y + dy
+            if x < 0 or y < 0 or x >= img_size or y >= img_size:
+                continue
+            if x * img_size + y in path_cells and path_cells[x * img_size + y]:
+                path_cells[x * img_size + y] = False
+                length_true += np.sqrt((start_x - x) ** 2 + (start_y - y) ** 2)
+                start_x, start_y = x, y
+                neighbor = True
+                break
+        if neighbor:
             continue
 
-        indent += 1
-       # print(list(bresenham(prev_x, prev_y, x, y)))
-        for cell in list(bresenham(prev_x, prev_y, x, y))[1:-1]:
-            print("bresenham")
-            print(img[cell[1], cell[0]])
-            if (img[cell[1], cell[0]] == 1).all():
-                success = False
+        success = False
+        min_dist = np.inf
+        closest = None
+        for x, y in zip(inds[0], inds[1]):
+            if (start_x - x) ** 2 + (start_y - y) ** 2 < min_dist and path_cells[x * img_size + y]:
+                min_dist = (start_x - x) ** 2 + (start_y - y) ** 2
+                closest = (x, y)
+        for cell in list(bresenham(start_x, start_y, closest[0], closest[1]))[1:-1]:
+            # print(cell[0], cell[1])
+            final_path += [cell]
+            if out[cell[0], cell[1]] == 1:
+                succes_w_bresenham = False
             else:
-                img[cell[1], cell[0]] = 0
-        prev_x = x
-        prev_y = y
-
-    return success, indent
+                out[cell[0], cell[1]] = 0
+        if succes_w_bresenham:
+            start_x, start_y = closest
+            path_cells[closest[0] * img_size + closest[1]] = False
+        else:
+            break
+    return success, succes_w_bresenham, final_path
 
 
 img_size = 64
 channels = 1
 num_classes = 3
-pred_folder = './predictions/size_64/20_den2/20_den_25e/'
-result_folder = './results/size_64/20_den_25e'
-dataset_dir = './data/size_64/20_den2'
+pred_folder = './predictions/size_64/ideal/'
+result_folder = './results/size_64/20_den3_100e_32b'
+dataset_dir = './data/size_64/ideal/'
 device = torch.device("cpu")
 
 dataset = ImageDataset(dataset_dir, img_size=img_size)
@@ -86,15 +159,15 @@ for model, path in zip(models, result_folders):
 
 batch_size = 6
 
-val_data_loader = DataLoader(ImageDataset(dataset_dir, mode='val', img_size=img_size),
-                             batch_size=1, shuffle=False, num_workers=0)
+val_data_loader = DataLoader(ImageDataset(dataset_dir, mode='eval', img_size=img_size),
+                             batch_size=1, shuffle=False)
 
 #criterionL1 = nn.L1Loss().to(device)
-criterionMSE = nn.MSELoss().to(device)
-#criterionCE = nn.CrossEntropyLoss().to(device)
-avg_psnr = [0] * len(models)
+# criterionMSE = nn.MSELoss().to(device)
+# criterionCE = nn.CrossEntropyLoss().to(device)
+avg_psnr = []
 number_of_indents = [0] * len(models)
-success_rate = [0] * len(models)
+success_rate = []
 '''
 for i, batch in enumerate(val_data_loader):
     #if i > 10: break
@@ -210,42 +283,52 @@ with open(result_folder + 'val.txt', 'w') as f:
 
 
 for i, batch in enumerate(val_data_loader):
-    input = batch[0].to(device)
+    input, target = batch[0].to(device), batch[1].to(device)
     predictions = []
     for num, model in enumerate(models):
         output = model(input)
-        m, prediction = torch.max(output, 1, keepdim=True)
-        print(m)
+        # plt.figure()
+        # plt.imshow(output[0, 0].detach().cpu().numpy(), cmap='gray')
+        # plt.show()
+        # plt.close()
+        _, prediction = torch.max(output, 1, keepdim=True)
+        # plt.figure()
+        # plt.imshow(prediction[0, 0].detach().cpu().numpy(), cmap='gray')
+        # plt.show()
+        # plt.close()
         predictions += [prediction.float().data]
-        if num == len(models) - 1:
-            success, indent = check_connection(prediction.detach().cpu())
-            predictions += [prediction.float().data]
+        success, success_w_bresenham, final_path = check_connection(prediction.float().detach().cpu(), input.float().detach().cpu())
+        print(f"Path: {final_path}")
+        print(f"Success: {success}, Success w/ Bresenham: {success_w_bresenham}")
+        success_rate.append(success_w_bresenham)
+        predictions += [prediction.float().data]
+            
+    # processed_predictions = []
+    # for pred in predictions:
+    #     pred = pred[:, 0:1, :, :]
+    #     processed_predictions.append(pred)
 
-    processed_predictions = []
-    for pred in predictions:
-        pred = pred[:, 0:1, :, :]
-        processed_predictions.append(pred)
+    sample = torch.cat((input.data, target, *predictions), 0)
+    pred_img = predictions[-1]
 
-    sample = torch.cat((input.data, *processed_predictions), 0)
-    pred_img = processed_predictions[-1]
+    # sample_min = sample.min()
+    # sample_max = sample.max()
+    # sample = (sample - sample_min) / (sample_max - sample_min)
+    # sample = sample.clamp(0, 1)
 
-    sample_min = sample.min()
-    sample_max = sample.max()
-    sample = (sample - sample_min) / (sample_max - sample_min)
-    sample = sample.clamp(0, 1)
-
-    pred_min = pred_img.min()
-    pred_max = pred_img.max()
-    pred_img = (pred_img - pred_min) / (pred_max - pred_min)
-    pred_img = pred_img.clamp(0, 1)
+    # pred_min = pred_img.min()
+    # pred_max = pred_img.max()
+    # pred_img = (pred_img - pred_min) / (pred_max - pred_min)
+    # pred_img = pred_img.clamp(0, 1)
 
     save_image(sample, pred_folder + ('%d.png' % i),
-               nrow=7, normalize=False, pad_value=0)
+               nrow=7, normalize=True, pad_value=255)
 
     save_image(pred_img, pred_folder + ('prediction_%d.png' % i),
-               nrow=7, normalize=False, pad_value=0)
+               nrow=7, normalize=True, pad_value=255)
 
     print(f'Processed batch {i+1}/{len(val_data_loader)}')
+    print(f'Success rate: {np.array(success_rate).mean()}')
 
 
 '''

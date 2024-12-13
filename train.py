@@ -111,7 +111,7 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
     net_d_scheduler = get_scheduler(optimizer_d, lr_policy)
 
     loss_history = {'G': [], 'D': [], 'p': [], 'adv': [], 'valPSNR': []}
-
+    
     for epoch in range(epoch_count, niter + niter_decay + 1):
         # train
         print("[Epoch: " + str(epoch) + " ]")
@@ -119,15 +119,20 @@ def train(img_size=64, channels=1, num_classes=3, batch_size=32,
             # forward
             real_a, real_b, path = batch[0].to(
                 device), batch[1].to(device), batch[2].to(device)
-            # imshow(torch.cat((real_a[0], real_b[0]), -1).cpu().detach().numpy().reshape(img_size, img_size * 2))
-            # imshow(real_b[0].cpu().detach().numpy().reshape(img_size, img_size))
-
+            # plt.figure()
+            # plt.imshow(torch.cat((real_a[0], real_b[0]), -1).cpu().detach().numpy().reshape(img_size, img_size * 2), cmap='gray')
+            # plt.show()
+            # plt.close()
             output = net_g(real_a)
             # print(output)
             # print(real_b)
 
             # fake_b = output
             fake_b = torch.max(output, 1, keepdim=True)[1].float()
+            # plt.figure()
+            # plt.imshow(fake_b[0].cpu().detach().numpy().reshape(img_size, img_size), cmap='gray')
+            # plt.show()
+            # plt.close()
             fake_path = torch.where(fake_b == 0, torch.ones_like(fake_b).to(device),
                                     torch.zeros_like(fake_b).to(device)).to(device)
 
