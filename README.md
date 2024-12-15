@@ -59,7 +59,7 @@ Please ensure that the prediction data / test cases are included in the file dir
 
 
 #### A* with Dynamic Cost Solution
-To get the A* solution, run the `ResultComparison.py` python script
+To get the A* solution, run the `AstarComparison.py` python script
 Please ensure that the input image is included in the root folder of the current working directory.
 Additionally, the solution can only calculate the solution for one input at a time. Please use the counter variable in the script to change the iteration.
 
