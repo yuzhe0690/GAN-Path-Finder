@@ -11,8 +11,8 @@ class ImageDataset(Dataset):
         if not vin:
             # self.inp_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-8])
             self.inp_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-4])
-            # self.out_files = sorted(glob.glob('%s/*_log.png' % root), key=lambda fname: fname[:-4]) # for training
-            self.out_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-4]) # for prediction
+            self.out_files = sorted(glob.glob('%s/*_log.png' % root), key=lambda fname: fname[:-4]) # for training
+            # self.out_files = sorted(glob.glob('%s/*_img.png' % root), key=lambda fname: fname[:-4]) # for prediction
 
         # print(len(self.inp_files), len(self.out_files))
         # print(self.inp_files[:10])

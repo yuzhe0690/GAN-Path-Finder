@@ -29,7 +29,7 @@ def generate_random_obstacle(grid_size=64, obstacle_num=1, obstacle_scale=0.2, i
                     for dx in range(obstacle_size):
                         for dy in range(height):
                             if is_in_bounds(grid_size, x, y, dx, dy, shape):
-                                grid[x + dx][y + dy] = 255
+                                grid[x + dx][y + dy] = 128
                     success = True
             else:  # horizontal rectangle
                 scale = float(1 + np.random.randint(0, 10) / 10)
@@ -38,14 +38,14 @@ def generate_random_obstacle(grid_size=64, obstacle_num=1, obstacle_scale=0.2, i
                     for dx in range(width):
                         for dy in range(obstacle_size):
                             if is_in_bounds(grid_size, x, y, dx, dy, shape):
-                                grid[x + dx][y + dy] = 255
+                                grid[x + dx][y + dy] = 128
                     success = True
         elif shape == 'square':
             if is_space_free(grid, x, y, obstacle_size, obstacle_size, min_gap):
                 for dx in range(obstacle_size):
                     for dy in range(obstacle_size):
                         if is_in_bounds(grid_size, x, y, dx, dy, shape):
-                            grid[x + dx][y + dy] = 255
+                            grid[x + dx][y + dy] = 128
                 success = True
         elif shape == 'circle':
             radius = obstacle_size // 2
@@ -53,10 +53,10 @@ def generate_random_obstacle(grid_size=64, obstacle_num=1, obstacle_scale=0.2, i
                 for dx in range(radius):
                     for dy in range(radius):
                         if dx**2 + dy**2 < radius**2 and is_in_bounds(grid_size, x, y, dx, dy, shape):
-                            grid[x + dx][y + dy] = 255
-                            grid[x - dx][y - dy] = 255
-                            grid[x + dx][y - dy] = 255
-                            grid[x - dx][y + dy] = 255
+                            grid[x + dx][y + dy] = 128
+                            grid[x - dx][y - dy] = 128
+                            grid[x + dx][y - dy] = 128
+                            grid[x - dx][y + dy] = 128
                 success = True
 
         if success:
@@ -232,7 +232,7 @@ def a_star(grid, start, goal):
 if __name__ == '__main__':
     ind = 5
     amount = 1
-    counter = 6
+    counter = 1000
 
     for i in range(amount):
         generated_map = generate_random_obstacle(
@@ -245,7 +245,7 @@ if __name__ == '__main__':
         gt = visualize_path(generated_map, path, start, goal)
         pathless = visualize_pathless(generated_map, start, goal)
         gen_map_fname = (str(counter) + "_img.png")  # pathless map
-        # gen_map_gt_fname = (str(counter) + "_log.png")  # ground truth
+        gen_map_gt_fname = (str(counter) + "_log.png")  # ground truth
         plt.imsave(gen_map_fname, pathless, cmap='gray')
-        # plt.imsave(gen_map_gt_fname, gt, cmap='gray')
+        plt.imsave(gen_map_gt_fname, gt, cmap='gray')
         counter += 1
